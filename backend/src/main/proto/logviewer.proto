@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package logviewer.v1;
+
+option java_multiple_files = true;
+option java_package = "io.terraform.logviewer.grpc";
+option java_outer_classname = "LogViewerProto";
+
+message ImportMeta {
+  string file_name = 1;
+}
+
+message LogLine {
+  string raw_json = 1;
+}
+
+message ImportEnvelope {
+  oneof payload {
+    ImportMeta meta = 1;
+    LogLine line = 2;
+  }
+}
+
+message ImportFile {
+  string file_name = 1;
+  bytes content = 2;
+}
+
+message ImportResult {
+  string import_id = 1;
+  string file_name = 2;
+  int64 total = 3;
+  int64 saved = 4;
+  int64 failed = 5;
+}
+
+service LogIngest {
+  rpc Ingest(stream ImportEnvelope) returns (ImportResult);
+  rpc IngestFile(ImportFile) returns (ImportResult);
+}
+
+message QueryRequest {
+  int32 page = 1;
+  int32 size = 2;
+  string ts_from = 3;
+  string ts_to = 4;
+  string level = 5;
+  string section = 6;
+  bool unread_only = 7;
+  string q = 8;
+  map<string, string> filters = 9;
+  optional string sort_by = 10;
+  optional bool sort_desc = 11;
+  optional bool group_by_req_id = 12;
+}
+
+message LogRecord {
+  int64 id = 1;
+  string ts = 2;
+  string level = 3;
+  string section = 4;
+  string module = 5;
+  string message = 6;
+  string req_id = 7;
+  string trans_id = 8;
+  string rpc = 9;
+  string resource_type = 10;
+  string data_source_type = 11;
+  string http_op_type = 12;
+  int32 status_code = 13;
+  string file_name = 14;
+  string import_id = 15;
+  bool unread = 16;
+}
+
+message QueryResponse {
+  int64 total = 1;
+  int32 page = 2;
+  int32 size = 3;
+  repeated LogRecord items = 4;
+}
+
+message ExportRequest {
+  QueryRequest query = 1;
+}
+
+message MarkReadRequest {
+  repeated int64 ids = 1;
+  string req_id = 2;
+  bool mark_read = 3;
+}
+
+message MarkReadResponse {
+  int64 updated = 1;
+}
+
+message TimelineRequest {
+  string req_id = 1;
+  string ts_from = 2;
+  string ts_to = 3;
+  string import_id = 4;
+}
+
+message TimelineItem {
+  string req_id = 1;
+  string start_ts = 2;
+  string end_ts = 3;
+  int32 count = 4;
+  string import_id = 5;
+}
+
+message GetLogRequest {
+  int64 id = 1;
+}
+
+message LogDetails {
+  LogRecord record = 1;
+  string raw_json = 2;
+  string attrs_json = 3;
+  string annotations_json = 4;
+  int32 bodies_count = 5;
+}
+
+message BodiesRequest {
+  int64 log_id = 1;
+}
+
+message BodyItem {
+  int64 id = 1;
+  string kind = 2;
+  string body_json = 3;
+}
+
+service LogQuery {
+  rpc Search(QueryRequest) returns (QueryResponse);
+  rpc SearchGroups(GroupQueryRequest) returns (GroupQueryResponse);
+  rpc Export(ExportRequest) returns (stream LogRecord);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  rpc Timeline(TimelineRequest) returns (stream TimelineItem);
+  rpc GetLog(GetLogRequest) returns (LogDetails);
+  rpc Bodies(BodiesRequest) returns (stream BodyItem);
+}
+
+enum ReportFormat {
+  REPORT_FORMAT_UNSPECIFIED = 0;
+  REPORT_FORMAT_CSV = 1;
+  REPORT_FORMAT_JSON = 2;
+  REPORT_FORMAT_PDF = 3;
+}
+
+message ReportExportRequest {
+  QueryRequest query = 1;
+  ReportFormat format = 2;
+}
+
+message ReportChunk {
+  string file_name = 1;
+  bytes payload = 2;
+  bool eof = 3;
+}
+
+service ReportService {
+  rpc Export(ReportExportRequest) returns (stream ReportChunk);
+}
+
+message GroupQueryRequest {
+  QueryRequest query = 1;
+}
+
+message LogGroupItems {
+  string req_id = 1;
+  string group_first_ts = 2;
+  string group_last_ts = 3;
+  repeated LogRecord items = 4;
+}
+
+message GroupQueryResponse {
+  int64 total_groups = 1;
+  int32 page = 2;
+  int32 size = 3;
+  repeated LogGroupItems groups = 4;
+}
+
+message PluginEvent {
+  string id = 1;
+  string ts = 2;
+  string level = 3;
+  string section = 4;
+  string message = 5;
+  map<string, string> attrs = 6;
+}
+
+message PluginResult {
+  map<string, string> annotations = 1;
+}
+
+service LogPlugin {
+  rpc Process(stream PluginEvent) returns (stream PluginResult);
+}

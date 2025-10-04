@@ -1,0 +1,22 @@
+# Terraform Log Viewer Architecture Notes
+
+## Log Ingestion and Parsing
+- **Streaming entry point.** `LogIngestGrpcService` exposes the gRPC streaming endpoint. It starts an `ImportSession` once it receives the metadata envelope and forwards every `raw_json` line to the importer. 【F:src/main/java/io/terraform/logviewer/grpc/LogIngestGrpcService.java†L18-L57】
+- **Import pipeline.** `LogImportService` keeps statistics inside the session, parses each line through `TerraformLogParser`, persists the `LogEntryEntity`, and writes request/response payloads into `tf_log_bodies` via `LogBodyRepository`. Plugin annotations are saved as a second pass. 【F:src/main/java/io/terraform/logviewer/service/LogImportService.java†L27-L112】
+- **Timestamp/level recovery.** `TerraformLogParser` extracts timestamps and log levels from JSON or plain text. When a record misses those fields it reuses the previous context values or falls back to the current instant / INFO level and marks the values as guessed. 【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L122-L176】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L214-L276】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L318-L373】
+- **Section heuristics.** The parser classifies terraform `plan` / `apply` sections using ordered heuristics built from explicit fields, CLI traces, backend phrases, and keyword patterns. 【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L40-L115】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L470-L574】
+- **Module/IDs/HTTP metadata.** Terraform-specific fields (`tf_req_id`, `tf_resource_type`, HTTP method/status etc.) are extracted from nested JSON or inline key=value tokens. 【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L177-L213】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L278-L466】
+- **Bodies and why the table used to be empty.** `persistBodies` only persists what the parser emits. The parser now walks the full JSON tree, picking any nested field whose name hints at `request`, `response`, `payload`, `body`, or `content` (and ignores ids/status codes) so payloads stored under custom keys are saved as well. This feeds `tf_log_bodies` even when integrators wrap requests/responses deep inside envelopes. 【F:src/main/java/io/terraform/logviewer/service/LogImportService.java†L92-L108】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L173-L263】【F:src/main/java/io/terraform/logviewer/parser/TerraformLogParser.java†L440-L655】
+
+## Persistence Layer
+- **Schema.** `V1__init.sql` creates `tf_log_entries` and the child table `tf_log_bodies` with the `log_id` foreign key and indexes. 【F:src/main/resources/db/migration/V1__init.sql†L1-L35】
+- **Entities.** `LogEntryEntity` and `LogBodyEntity` map the schema to JPA models. 【F:src/main/java/io/terraform/logviewer/entity/LogEntryEntity.java†L9-L61】【F:src/main/java/io/terraform/logviewer/entity/LogBodyEntity.java†L9-L26】
+
+## Querying, Search, and Grouping
+- **Search API.** `LogQueryGrpcService.search` converts gRPC requests to `QueryParameters` and delegates to the query service. Export, mark-read, timeline, and body streaming are exposed through separate RPC methods. 【F:src/main/java/io/terraform/logviewer/grpc/LogQueryGrpcService.java†L21-L142】
+- **Dynamic filtering.** `LogQueryService.buildSpecification` applies timestamp ranges, level/section filters, unread flag, full-text search across message/module/raw JSON, and field-specific filters (`tf_resource_type`, HTTP status, etc.). 【F:src/main/java/io/terraform/logviewer/service/LogQueryService.java†L35-L148】
+- **Grouping by request.** `LogQueryService.timeline` aggregates by `reqId`, computing start/end timestamps and counts for timeline visualization. 【F:src/main/java/io/terraform/logviewer/service/LogQueryService.java†L96-L132】
+- **Body retrieval.** `LogQueryService.bodies` streams payloads, and `GrpcMapper` assembles detailed responses with body counts and individual payload items. 【F:src/main/java/io/terraform/logviewer/service/LogQueryService.java†L88-L95】【F:src/main/java/io/terraform/logviewer/grpc/GrpcMapper.java†L30-L58】
+
+## Tests
+- `TerraformLogParserTest` demonstrates the heuristics: plan/apply detection, HTTP bodies extraction, timestamp/level fallback, module detection, and request metadata parsing. 【F:src/test/java/io/terraform/logviewer/parser/TerraformLogParserTest.java†L12-L101】

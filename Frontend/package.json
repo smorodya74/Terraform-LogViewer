@@ -1,0 +1,49 @@
+{
+  "name": "freakrepo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "codegen": "protoc -I ../backend/src/main/proto --plugin=protoc-gen-es=./node_modules/.bin/protoc-gen-es --plugin=protoc-gen-connect-web=./node_modules/.bin/protoc-gen-connect-web --es_out=src/gen --connect-web_out=src/gen ../backend/src/main/proto/logviewer.proto"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.4.2",
+    "@bufbuild/connect": "^0.8.6",
+    "@bufbuild/connect-web": "^0.8.6",
+    "@bufbuild/protobuf": "^1.2.1",
+    "@tanstack/react-query": "^5.51.1",
+    "@tanstack/react-table": "^8.16.0",
+    "antd": "^5.22.1",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "react-virtuoso": "^4.8.1",
+    "recharts": "^2.13.1",
+    "vis-data": "^8.0.3",
+    "vis-timeline": "^8.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-connect-web": "^0.8.6",
+    "@bufbuild/protoc-gen-es": "^1.5.1",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.1",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

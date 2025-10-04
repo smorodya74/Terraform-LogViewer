@@ -1,0 +1,132 @@
+spring:
+  profiles:
+    active: pg
+  servlet:
+    multipart:
+      max-file-size: 256MB
+      max-request-size: 256MB
+
+---
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    url: jdbc:h2:mem:logdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  dual:
+    write: false
+  clickhouse:
+    url: jdbc:clickhouse://127.0.0.1:8123/tf_logs
+    user: default
+    password: ""
+    database: tf_logs
+    init: true
+  pg:
+    partitioning:
+      enabled: true
+  plugins:
+    enabled: true
+    deadline: 5s
+    plugins:
+      - id: demo
+        host: localhost
+        port: 9090
+        plaintext: true
+  query-filter:
+    enabled: true
+    forced-filters:
+      import_id: ${LOGVIEWER_FORCED_IMPORT_ID:}
+    blocked-fields:
+      - status_code
+
+grpc:
+  server:
+    port: 9090
+    reflection-service-enabled: true
+  server-config:
+    max-inbound-message-size: 52428800
+  client:
+    logviewer:
+      address: static://127.0.0.1:${grpc.server.port}
+      negotiation-type: plaintext
+
+logviewer:
+  ingest:
+    http-mode: ${LOGVIEWER_INGEST_HTTP_MODE:rest}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: pg
+  datasource:
+    url: jdbc:postgresql://localhost:5433/tf_logs
+    username: tf
+    password: tfpwd
+  jpa:
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  dual:
+    write: false
+  clickhouse:
+    enabled: false
+    url: jdbc:clickhouse://127.0.0.1:8123/tf_logs
+    user: default
+    password: ""
+    database: tf_logs
+    init: true
+  pg:
+    partitioning:
+      enabled: false
+  plugins:
+    enabled: true
+    deadline: 5s
+    plugins:
+      - id: demo
+        host: localhost
+        port: 9090
+        plaintext: true
+  query-filter:
+    enabled: true
+    forced-filters:
+      import_id: ${LOGVIEWER_FORCED_IMPORT_ID:}
+    blocked-fields:
+      - status_code
+
+grpc:
+  server:
+    port: 9090
+    reflection-service-enabled: true
+  server-config:
+    max-inbound-message-size: 52428800
+  client:
+    logviewer:
+      address: static://127.0.0.1:${grpc.server.port}
+      negotiation-type: plaintext
+
+logviewer:
+  ingest:
+    http-mode: ${LOGVIEWER_INGEST_HTTP_MODE:rest}

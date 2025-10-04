@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    image: terraform-log-viewer:local
+    ports:
+      - "9090:9090"
+    environment:
+      SPRING_PROFILES_ACTIVE: pg
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pg:5432/tf_logs
+      SPRING_DATASOURCE_USERNAME: tf
+      SPRING_DATASOURCE_PASSWORD: tfpwd
+      APP_PLUGINS_ENABLED: "false"
+    depends_on:
+      pg:
+        condition: service_healthy
+
+  pg:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tf_logs
+      POSTGRES_USER: tf
+      POSTGRES_PASSWORD: tfpwd
+    ports: ["5433:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tf -d tf_logs -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  ch:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_DB: tf_logs
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports: ["8123:8123", "9000:9000"]
+    volumes: ["chdata:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata: {}
+  chdata: {}

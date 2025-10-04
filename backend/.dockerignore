@@ -1,0 +1,11 @@
+# Maven output
+/target
+
+# Git & tooling
+/.git
+/.github
+/.idea
+/.mvn/wrapper/maven-wrapper.jar
+
+# OS files
+.DS_Store
